@@ -17,6 +17,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _todos = MutableStateFlow<List<Todo>?>(null)
     val todos: StateFlow<List<Todo>?> = _todos
 
+    private val _suggestions = MutableStateFlow<List<Todo>?>(null)
+    val suggestions: StateFlow<List<Todo>?> = _suggestions
+
     private val _todoError = MutableStateFlow<String?>(null)
     val todoError: StateFlow<String?> = _todoError
 
@@ -115,6 +118,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _todoError.value = "Failed to search todos. Please try again."
             }
         }
+    }
+
+    fun fetchSuggestions(query: String) {
+        val filteredList = _todos.value?.filter {
+            it.title.contains(query, ignoreCase = true) ||
+                    it.content.contains(query, ignoreCase = true)
+        }
+        _suggestions.value = filteredList
     }
 
     fun deleteTodo(todoId: Int) {

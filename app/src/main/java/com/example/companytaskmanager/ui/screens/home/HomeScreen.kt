@@ -8,6 +8,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,7 +19,10 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import com.example.companytaskmanager.ui.Login.AuthViewModel
 import com.example.companytaskmanager.model.Todo
@@ -36,6 +41,7 @@ fun HomeScreen(
     ) {
         val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
         val todos by homeViewModel.todos.collectAsState()
+        val suggestions by homeViewModel.suggestions.collectAsState()
         val loginError by authViewModel.loginError.collectAsState()
         val todoError by homeViewModel.todoError.collectAsState()
         var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -47,6 +53,7 @@ fun HomeScreen(
         var newTodoCompleted by rememberSaveable {
             mutableStateOf(false)
         }
+        var expanded by rememberSaveable { mutableStateOf(false) }
 
         LaunchedEffect(isAuthenticated) {
             if (!isAuthenticated) {
@@ -96,33 +103,79 @@ fun HomeScreen(
                     Text("Logout")
                 }
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                TextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Search Todos") },
-                    modifier = Modifier.weight(1f),
-                    leadingIcon = {
-                        IconButton(onClick = { homeViewModel.searchTodos(searchQuery) }) {
-                            Icon(Icons.Default.Search, contentDescription = "Search")
+            Column{
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                            homeViewModel.fetchSuggestions(it)
+                            expanded = it.isNotEmpty()
+                        },
+                        label = { Text("Search Todos") },
+                        modifier = Modifier.weight(1f),
+                        leadingIcon = {
+                            IconButton(onClick = {
+                                homeViewModel.searchTodos(searchQuery)
+                                expanded = false
+                            }) {
+                                Icon(Icons.Default.Search, contentDescription = "Search")
+                            }
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                homeViewModel.fetchTodos()
+                                searchQuery = ""
+                                expanded = false
+                            }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear Text")
+                            }
                         }
-                    },
-                    trailingIcon = {
-                        IconButton(onClick = {
-                            homeViewModel.fetchTodos()
-                            searchQuery = ""
-                        }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear Text")
+                    )
+                }
+
+                if (expanded && suggestions != null && suggestions!!.isNotEmpty()) {
+                    Popup(
+                        alignment = Alignment.TopCenter,
+                        offset = IntOffset(0, 150), // Adjust the offset based on your layout
+                    ) {
+
+                        Card(
+                            modifier = modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .padding(horizontal = 16.dp)
+                                , // Limit the height of the suggestions list
+
+                            shape = MaterialTheme.shapes.medium,
+                            elevation = CardDefaults.cardElevation(2.dp)
+                        ) {
+                            LazyColumn (
+                            ){
+                                items(suggestions!!) { todo ->
+                                    ListItem(
+                                        modifier = Modifier
+                                            .clickable {
+                                                searchQuery = todo.title
+                                                expanded =
+                                                    false // Close the suggestions on selection
+                                                homeViewModel.searchTodos(todo.title)
+                                            },
+                                        headlineContent = { Text(todo.title, style = MaterialTheme.typography.bodyMedium) },
+                                        supportingContent = { Text(todo.content, style = MaterialTheme.typography.bodySmall, color = Color.Gray) }
+                                    )
+                                }
+                            }
                         }
                     }
-                )
+                }
             }
-
+            Spacer(modifier = Modifier.height(4.dp))
             // Display Todoo list
             todos?.let { todoList ->
                 TodoList(modifier, todoList, homeViewModel)
@@ -171,6 +224,7 @@ fun HomeScreen(
         }
     }
 }
+
 
 
 @Composable
