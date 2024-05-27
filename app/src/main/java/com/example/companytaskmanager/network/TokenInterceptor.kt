@@ -1,0 +1,68 @@
+package com.example.companytaskmanager.network
+
+import android.util.Log
+import com.example.companytaskmanager.BuildConfig
+import com.example.companytaskmanager.utils.SharedPrefsHelper
+import com.example.companytaskmanager.network.model.RefreshRequest
+import okhttp3.Interceptor
+import okhttp3.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+
+
+class TokenInterceptor() : Interceptor {
+    private val sharedPreferences = SharedPrefsHelper.getSharedPreferences()
+
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val originalRequest = chain.request()
+        var response = chain.proceed(originalRequest)
+
+        if (response.code == 401) {
+            synchronized(this) {
+                response.close()
+
+                val newAccessToken = refreshAccessToken() ?: return response
+                val newRequest = originalRequest.newBuilder()
+                    .header("Authorization", "Bearer $newAccessToken")
+                    .build()
+                response = chain.proceed(newRequest)
+            }
+        }
+
+        return response
+    }
+
+    private fun refreshAccessToken(): String? {
+        val refreshToken = sharedPreferences.getString("refresh", null) ?: return null
+
+        return try {
+            val retrofit = Retrofit.Builder()
+                .baseUrl(BuildConfig.BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+
+            val authService = retrofit.create(AuthService::class.java)
+            val response = authService.refreshToken(RefreshRequest(refreshToken)).execute()
+
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    saveTokens(it.access)
+                    return it.access
+                }
+            } else {
+                Log.e("TokenInterceptor", "Token refresh failed")
+            }
+            null
+        } catch (e: Exception) {
+            Log.e("TokenInterceptor", "Token refresh exception: ${e.message}")
+            null
+        }
+    }
+
+    private fun saveTokens(accessToken: String) {
+        sharedPreferences.edit().apply {
+            putString("access", accessToken)
+            apply()
+        }
+    }
+}
