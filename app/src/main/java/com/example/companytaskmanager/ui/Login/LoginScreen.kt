@@ -2,11 +2,17 @@ package com.example.companytaskmanager.ui.Login
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -20,6 +26,9 @@ fun LoginScreen(navController: NavHostController, authViewModel: AuthViewModel) 
 
     val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
     val loginError by authViewModel.loginError.collectAsState()
+
+    val localFocusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(isAuthenticated) {
         if (isAuthenticated) {
@@ -48,6 +57,10 @@ fun LoginScreen(navController: NavHostController, authViewModel: AuthViewModel) 
         TextField(
             value = username,
             onValueChange = { username = it },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = {
+                localFocusManager.moveFocus(FocusDirection.Down)
+            }),
             label = { Text("Username") }
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -55,6 +68,12 @@ fun LoginScreen(navController: NavHostController, authViewModel: AuthViewModel) 
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                keyboardController?.hide()
+                isLoading = true
+                authViewModel.login(username, password)
+            }),
             visualTransformation = PasswordVisualTransformation()
         )
         Spacer(modifier = Modifier.height(16.dp))
