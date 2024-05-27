@@ -42,7 +42,7 @@ fun HomeScreen(
     navController: NavHostController,
     authViewModel: AuthViewModel,
     homeViewModel: HomeViewModel) {
-    // let's test this
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
