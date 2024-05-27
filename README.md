@@ -1,3 +1,3 @@
 # Company Task Manager
 
-## Currently in progress
+Currently in progress...
