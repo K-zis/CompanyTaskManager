@@ -62,15 +62,6 @@ fun LoginScreen(
             visualTransformation = PasswordVisualTransformation()
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = {
-                authViewModel.login(username, password)
-            },
-            enabled = loginState == LoginState.Idle
-        ) {
-            Text("Login")
-        }
-
         when(loginState) {
             is LoginState.Error -> {
                 val errorMessage = (loginState as LoginState.Error).message
@@ -85,5 +76,15 @@ fun LoginScreen(
                 }
             }
         }
+        Button(
+            onClick = {
+                authViewModel.login(username, password)
+            },
+            enabled = (loginState == LoginState.Idle || loginState is LoginState.Error)
+        ) {
+            Text("Login")
+        }
+
+
     }
 }

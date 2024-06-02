@@ -1,11 +1,13 @@
 package com.example.companytaskmanager.ui.Login
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.companytaskmanager.data.repositories.AuthRepository
 import com.example.companytaskmanager.utils.InactivityHandler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -38,20 +40,28 @@ class AuthViewModel @Inject constructor(
 
     fun login(username: String, password: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            authRepository.loginAction(username, password)
-                .collectLatest { loginResponse ->
-                    if(loginResponse.isSuccess) {
-                        _loginState.value = LoginState.Success
-                        inactivityHandler.resetTimeout()
-                    } else if (loginResponse.isFailure) {
-                        _loginState.value = LoginState.Error(loginResponse.onFailure {
-                            it.message
-                        }.toString())
-                        _loginState.value = LoginState.Idle
-                    } else {
-                        LoginState.Loading
+            _loginState.value = LoginState.Loading
+            try {
+                authRepository.loginAction(username, password)
+                    .collectLatest { loginResponse ->
+                        if (loginResponse.isSuccess) {
+                            _loginState.value = LoginState.Success
+                            inactivityHandler.resetTimeout()
+                        } else {
+                            var error: String = ""
+                            loginResponse.onFailure {
+                                error = it.message.toString().split(" ")[1]
+                            }
+                            if (error == "400" || error == "401"){
+                                _loginState.value = LoginState.Error("Given credentials are wrong. Please try again.")
+                            } else {
+                                _loginState.value = LoginState.Error("Something went wrong. Make sure you're connected to internet.")
+                            }
+                        }
                     }
-                }
+            } catch (e: Exception) {
+                _loginState.value = LoginState.Error("Something went wrong with Server.")
+            }
         }
     }
 

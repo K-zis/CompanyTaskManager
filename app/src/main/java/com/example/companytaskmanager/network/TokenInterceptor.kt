@@ -18,19 +18,30 @@ class TokenInterceptor @Inject constructor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         var response = chain.proceed(originalRequest)
+        val accessToken = sharedPreferences.getString("access", null)
 
         if (response.code == 401) {
             synchronized(this) {
-                response.close()
+                // close previous response in case user is already
+                // logged in and need to refresh access key
+                if (accessToken != null) {
+                    response.close()
+                }
 
                 val newAccessToken = refreshAccessToken() ?: return response
                 val newRequest = originalRequest.newBuilder()
                     .header("Authorization", "Bearer $newAccessToken")
                     .build()
                 response = chain.proceed(newRequest)
+
+
             }
         }
 
+        // close response if user unauthorized (initial login)
+        if (accessToken == null) {
+            response.close()
+        }
         return response
     }
 

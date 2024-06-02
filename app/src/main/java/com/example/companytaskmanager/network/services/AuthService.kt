@@ -7,6 +7,7 @@ import com.example.companytaskmanager.network.RRmodels.LoginRequest
 import com.example.companytaskmanager.network.RRmodels.LoginResponse
 import com.example.companytaskmanager.network.RRmodels.RefreshRequest
 import com.example.companytaskmanager.network.RRmodels.RefreshResponse
+import retrofit2.Response
 
 interface AuthService {
     @POST("/auth/token/")

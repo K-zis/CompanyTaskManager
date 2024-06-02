@@ -1,6 +1,7 @@
 package com.example.companytaskmanager.data.repositories
 
 import android.content.SharedPreferences
+import android.util.Log
 import com.example.companytaskmanager.network.services.AuthService
 import com.example.companytaskmanager.network.RRmodels.LoginRequest
 import com.example.companytaskmanager.network.RRmodels.RefreshRequest
@@ -8,6 +9,7 @@ import com.example.companytaskmanager.network.RRmodels.RefreshResponse
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import retrofit2.HttpException
+import retrofit2.Response
 import retrofit2.awaitResponse
 import java.io.IOException
 import javax.inject.Inject
@@ -36,6 +38,8 @@ class AuthRepository @Inject constructor(
             emit(Result.failure<Unit>(e))
         } catch (e: HttpException) {
             emit(Result.failure<Unit>(e))
+        } catch (e: Exception) {
+            emit(Result.failure<Unit>(e))
         }
     }
 
@@ -61,6 +65,5 @@ class AuthRepository @Inject constructor(
 
     fun logoutAction() {
         sharedPreferences.edit().clear().apply()
-
     }
 }
