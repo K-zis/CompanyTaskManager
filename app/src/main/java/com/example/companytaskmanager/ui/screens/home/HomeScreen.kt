@@ -126,6 +126,9 @@ fun HomeScreenOnSuccess(
         mutableStateOf("")
     }
 
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
     // Fetch todos when the screen is composed
     LaunchedEffect (todosResourceState) {
         if (todosResourceState is TodosResourceState.Loading) {
@@ -142,7 +145,10 @@ fun HomeScreenOnSuccess(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) { detectTapGestures { authViewModel.userInteraction() } } // Detect user interactions
+                .pointerInput(Unit) { detectTapGestures {
+                    authViewModel.userInteraction()
+                    keyboardController?.hide()
+                } }
                 .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -164,7 +170,7 @@ fun HomeScreenOnSuccess(
             }
             SearchFieldWithSuggestion(
                 modifier = modifier.weight(0.15f),
-                keyboardController = LocalSoftwareKeyboardController.current,
+                keyboardController = keyboardController,
                 searchQuery = searchQuery,
                 onSearchQueryChange = {
                     searchQuery = it
@@ -210,8 +216,8 @@ fun HomeScreenOnSuccess(
                 onContentChange = { newTodoContent = it},
                 completed = newTodoCompleted,
                 onCompletedChange = { newTodoCompleted = !newTodoCompleted },
-                keyboardController = LocalSoftwareKeyboardController.current,
-                localFocusManager = LocalFocusManager.current,
+                keyboardController = keyboardController,
+                localFocusManager = focusManager,
                 onAddButtonClick = {
                     if (newTodoTitle.isNotBlank()) {
                         homeViewModel.createTodo(
@@ -265,7 +271,7 @@ fun TodoList(
         mutableIntStateOf(-1)
     }
     LazyColumn (
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth().heightIn(max= 350.dp)
     ){
         items(todos) { todo ->
             Row(horizontalArrangement = Arrangement.SpaceBetween) {

@@ -33,7 +33,10 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .pointerInput(Unit) { detectTapGestures { authViewModel.userInteraction() } }, // Detect user interactions
+            .pointerInput(Unit) { detectTapGestures {
+                authViewModel.userInteraction()
+                keyboardController?.hide()
+            } },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
