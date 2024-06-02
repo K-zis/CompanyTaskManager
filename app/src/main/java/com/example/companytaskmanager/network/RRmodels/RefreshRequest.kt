@@ -1,4 +1,4 @@
-package com.example.companytaskmanager.network.model
+package com.example.companytaskmanager.network.RRmodels
 
 data class RefreshRequest(
     val refresh: String,

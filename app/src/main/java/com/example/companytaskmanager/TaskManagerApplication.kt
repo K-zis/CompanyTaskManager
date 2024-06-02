@@ -1,11 +1,7 @@
 package com.example.companytaskmanager
 
 import android.app.Application
-import com.example.companytaskmanager.utils.SharedPrefsHelper
+import dagger.hilt.android.HiltAndroidApp
 
-class TaskManagerApplication: Application() {
-    override fun onCreate() {
-        super.onCreate()
-        SharedPrefsHelper.initialize(this)
-    }
-}
+@HiltAndroidApp
+class TaskManagerApplication: Application()

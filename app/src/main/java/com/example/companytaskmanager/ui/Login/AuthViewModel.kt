@@ -1,36 +1,29 @@
 package com.example.companytaskmanager.ui.Login
 
-import android.app.Application
-import android.util.Log
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.companytaskmanager.network.RetrofitClient
-import com.example.companytaskmanager.network.model.LoginRequest
+import com.example.companytaskmanager.data.repositories.AuthRepository
 import com.example.companytaskmanager.utils.InactivityHandler
-import com.example.companytaskmanager.utils.SharedPrefsHelper
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-import retrofit2.awaitResponse
-import java.net.SocketTimeoutException
+import javax.inject.Inject
 
-class AuthViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
 
-    private val _isAuthenticated = MutableStateFlow(false)
-    val isAuthenticated: StateFlow<Boolean> = _isAuthenticated
-
-    private val _loginError = MutableStateFlow<String?>(null)
-    val loginError: StateFlow<String?> = _loginError
-
-    private val sharedPreferences = SharedPrefsHelper.getSharedPreferences()
+    private val _loginState: MutableStateFlow<LoginState> = MutableStateFlow(LoginState.Idle)
+    val loginState: StateFlow<LoginState> = _loginState
 
     private val inactivityHandler = InactivityHandler(5 * 60 * 1000L)
 
     init {
         monitorInactivity()
-
     }
 
     private fun monitorInactivity() {
@@ -44,44 +37,27 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun login(username: String, password: String) {
-        viewModelScope.launch {
-            try {
-                val response = withTimeoutOrNull(5000) { // Set a timeout of 5 seconds
-                    RetrofitClient.authService.login(LoginRequest(username, password)).awaitResponse()
-                }
-
-                if (response == null) {
-                    _loginError.value = "Login timeout. Please check your connection and try again."
-                } else if (response.isSuccessful) {
-                    val loginResponse = response.body()
-                    if (loginResponse != null) {
-                        sharedPreferences.edit()
-                            .putString("access", loginResponse.access)
-                            .putString("refresh", loginResponse.refresh)
-                            .apply()
-
-                        _isAuthenticated.value = true
-                        _loginError.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            authRepository.loginAction(username, password)
+                .collectLatest { loginResponse ->
+                    if(loginResponse.isSuccess) {
+                        _loginState.value = LoginState.Success
                         inactivityHandler.resetTimeout()
+                    } else if (loginResponse.isFailure) {
+                        _loginState.value = LoginState.Error(loginResponse.onFailure {
+                            it.message
+                        }.toString())
+                        _loginState.value = LoginState.Idle
                     } else {
-                        Log.d("LOGGING RESPONSE NULL", loginResponse.toString())
-                        _loginError.value = "Login failed. Please try again."
+                        LoginState.Loading
                     }
-                } else {
-                    _loginError.value = "Login failed. Invalid credentials."
                 }
-            } catch (e: SocketTimeoutException) {
-                _loginError.value = "Login timeout. Please check your connection and try again."
-            } catch (e: Exception) {
-                Log.d("EXCEPTION THROWN", e.toString())
-                _loginError.value = "Login failed. Please try again."
-            }
         }
     }
 
     fun logout() {
-        sharedPreferences.edit().clear().apply()
-        _isAuthenticated.value = false
+        authRepository.logoutAction()
+        _loginState.value = LoginState.Idle
         inactivityHandler.stopTimeout()
     }
 
@@ -89,4 +65,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         inactivityHandler.resetTimeout()
         inactivityHandler.resetInactivityFlag()
     }
+}
+
+sealed class LoginState {
+    data object Idle : LoginState()
+    data object Loading : LoginState()
+    data object Success : LoginState()
+    data class Error(val message: String) : LoginState()
 }

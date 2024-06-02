@@ -1,29 +1,56 @@
 package com.example.companytaskmanager.ui.screens.home
 
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -33,62 +60,85 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.navigation.NavHostController
-import com.example.companytaskmanager.ui.Login.AuthViewModel
 import com.example.companytaskmanager.model.Todo
+import com.example.companytaskmanager.ui.Login.AuthViewModel
+import com.example.companytaskmanager.ui.Login.LoginState
+import com.example.companytaskmanager.utils.TodosResourceState
 
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
     navController: NavHostController,
     authViewModel: AuthViewModel,
-    homeViewModel: HomeViewModel) {
+    homeViewModel: HomeViewModel
+) {
+    val context = LocalContext.current
+    val loginState by authViewModel.loginState.collectAsState()
+
+    LaunchedEffect(loginState) {
+        if (loginState == LoginState.Idle || loginState is LoginState.Error) {
+            navController.navigate("login") {
+                popUpTo("protected_home") { inclusive = true }
+            }
+        }
+    }
+
+    when (loginState) {
+        is LoginState.Error -> {
+            val errorMessage = (loginState as LoginState.Error).message
+            Text(text = errorMessage)
+            authViewModel.logout()
+        }
+        LoginState.Idle -> {authViewModel.logout()}
+        LoginState.Loading -> CircularProgressIndicator()
+        LoginState.Success -> HomeScreenOnSuccess(
+            modifier,
+            navController,
+            authViewModel,
+            homeViewModel,
+            context
+        )
+    }
+}
+
+@Composable
+fun HomeScreenOnSuccess(
+    modifier: Modifier = Modifier,
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    homeViewModel: HomeViewModel,
+    context: Context
+) {
+    val todosResourceState by homeViewModel.todosResourceState.collectAsState()
+    val todoState by homeViewModel.todoState.collectAsState()
+    val suggestions by homeViewModel.suggestions.collectAsState()
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    var newTodoTitle by rememberSaveable { mutableStateOf("") }
+    var newTodoContent by rememberSaveable {
+        mutableStateOf("")
+    }
+    var newTodoCompleted by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var toastText by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    // Fetch todos when the screen is composed
+    LaunchedEffect (todosResourceState) {
+        if (todosResourceState is TodosResourceState.Loading) {
+            homeViewModel.fetchTodos()
+        }
+    }
+
 
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
-        val todos by homeViewModel.todos.collectAsState()
-        val suggestions by homeViewModel.suggestions.collectAsState()
-        val loginError by authViewModel.loginError.collectAsState()
-        val todoError by homeViewModel.todoError.collectAsState()
-        var searchQuery by rememberSaveable { mutableStateOf("") }
-
-        var newTodoTitle by rememberSaveable { mutableStateOf("") }
-        var newTodoContent by rememberSaveable {
-            mutableStateOf("")
-        }
-        var newTodoCompleted by rememberSaveable {
-            mutableStateOf(false)
-        }
-
-        LaunchedEffect(isAuthenticated) {
-            if (!isAuthenticated) {
-                navController.navigate("login") {
-                    popUpTo("protected_home") { inclusive = true }
-                }
-            }
-        }
-
-        LaunchedEffect(todoError) {
-            todoError?.let {
-                // Handle the error as needed, such as showing a dialog
-            }
-        }
-
-        // Fetch todos when the screen is composed
-        LaunchedEffect(Unit) {
-            homeViewModel.fetchTodos()
-        }
-
-        LaunchedEffect(loginError) {
-            loginError?.let {
-                // Handle the error as needed, such as showing a dialog
-            }
-        }
-
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -135,10 +185,21 @@ fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             // Display Todoo list
-            todos?.let { todoList ->
-                TodoList(modifier = modifier.weight(1f), todoList, homeViewModel)
-            } ?: run {
-                CircularProgressIndicator()
+            when(todosResourceState) {
+                is TodosResourceState.Error -> {
+                    val errorMessage = (todosResourceState as TodosResourceState.Error).error
+                    Text(text = errorMessage)
+                }
+                is TodosResourceState.Loading -> CircularProgressIndicator()
+                is TodosResourceState.Success -> {
+                    val todoList = (todosResourceState as TodosResourceState.Success).data
+                    TodoList(
+                        modifier,
+                        todoList,
+                        homeViewModel,
+                        onUpdateTodo={toastText = "Todo updated!"},
+                        onDeleteTodo={toastText = "Todo deleted!"})
+                }
             }
 
             TodoInsertionForm(
@@ -153,13 +214,36 @@ fun HomeScreen(
                 localFocusManager = LocalFocusManager.current,
                 onAddButtonClick = {
                     if (newTodoTitle.isNotBlank()) {
-                        homeViewModel.createTodo(newTodoTitle, newTodoContent, newTodoCompleted)
-                        newTodoTitle = "" // Clear the input field after creating todo
-                        newTodoContent = "" // Clear the input field after creating todo
+                        homeViewModel.createTodo(
+                            Todo(
+                                null,
+                                newTodoTitle,
+                                newTodoContent,
+                                newTodoCompleted
+                                )
+                            )
+                        newTodoTitle = ""
+                        newTodoContent = ""
                         newTodoCompleted = false
+                        toastText = "Todo created!"
                     }
                 }
             )
+
+            if  (todoState.loading) {
+                Popup (
+                    alignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (todoState.success) {
+                homeViewModel.fetchTodos()
+                Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
+                homeViewModel.resetTodoState()
+            } else if (todoState.errorMessage != null) {
+                Toast.makeText(context, todoState.errorMessage, Toast.LENGTH_SHORT).show()
+                homeViewModel.resetTodoState()
+            }
         }
     }
 }
@@ -170,7 +254,9 @@ fun HomeScreen(
 fun TodoList(
     modifier: Modifier,
     todos: List<Todo>,
-    homeViewModel: HomeViewModel
+    homeViewModel: HomeViewModel,
+    onUpdateTodo: () -> Unit,
+    onDeleteTodo: () -> Unit,
 ) {
     var showAlertBox by rememberSaveable {
         mutableStateOf(false)
@@ -197,6 +283,7 @@ fun TodoList(
                         .clickable(onClick = {
                             todo.completed = !todo.completed
                             homeViewModel.updateTodo(todo)
+                            onUpdateTodo()
                         })
                         .weight(0.5f)
                         .align(Alignment.CenterVertically),
@@ -207,7 +294,7 @@ fun TodoList(
                 )
                 IconButton(
                     onClick = {
-                        selectedTodoId = todo.id
+                        selectedTodoId = todo.id!!
                         showAlertBox = !showAlertBox
                     },
                     modifier = modifier
@@ -217,7 +304,6 @@ fun TodoList(
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Delete todo",
-//                        modifier = Modifier.background(color=Color.Red)
                     )
                 }
             }
@@ -226,7 +312,10 @@ fun TodoList(
     if (showAlertBox) {
         CustomAlertDialog(
             showAlertBox = { showAlertBox = !showAlertBox },
-            confirmAction = { homeViewModel.deleteTodo(selectedTodoId) })
+            confirmAction = {
+                homeViewModel.deleteTodo(selectedTodoId)
+                onDeleteTodo()
+            })
     }
 
 }

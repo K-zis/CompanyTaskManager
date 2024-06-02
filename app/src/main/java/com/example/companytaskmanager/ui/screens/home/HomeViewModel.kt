@@ -1,150 +1,93 @@
 package com.example.companytaskmanager.ui.screens.home
 
-import android.app.Application
-import android.util.Log
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.companytaskmanager.network.RetrofitClient
+import com.example.companytaskmanager.data.repositories.TodoRepository
 import com.example.companytaskmanager.model.Todo
-import com.example.companytaskmanager.network.model.CreateOrUpdateTodoRequest
-import com.example.companytaskmanager.utils.SharedPrefsHelper
+import com.example.companytaskmanager.utils.TodoState
+import com.example.companytaskmanager.utils.TodosResourceState
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class HomeViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val todoRepository: TodoRepository
+) : ViewModel() {
 
-    private val _todos = MutableStateFlow<List<Todo>?>(null)
-    val todos: StateFlow<List<Todo>?> = _todos
+    private val _todosResourceState = MutableStateFlow<TodosResourceState<List<Todo>>>(TodosResourceState.Loading())
+    val todosResourceState: StateFlow<TodosResourceState<List<Todo>>> = _todosResourceState
 
     private val _suggestions = MutableStateFlow<List<Todo>?>(null)
     val suggestions: StateFlow<List<Todo>?> = _suggestions
 
-    private val _todoError = MutableStateFlow<String?>(null)
-    val todoError: StateFlow<String?> = _todoError
-
-    private val sharedPreferences = SharedPrefsHelper.getSharedPreferences()
+    private val _todoState = MutableStateFlow<TodoState>(TodoState())
+    val todoState: StateFlow<TodoState> = _todoState
 
     fun fetchTodos() {
-        viewModelScope.launch {
-            try {
-                val access = sharedPreferences.getString("access", null)
-                if (!access.isNullOrEmpty()) {
-                    val response = RetrofitClient.authService.getTodos("Bearer $access")
-                    if (response.isSuccessful) {
-                        _todos.value = response.body()
-                    } else {
-                        _todoError.value = "Failed to fetch todos. Please try again."
-                    }
-                } else {
-                    _todoError.value = "No access token found. Please log in again."
+        viewModelScope.launch(Dispatchers.IO) {
+            todoRepository.getTodosAction()
+                .collectLatest { response ->
+                    _todosResourceState.value = response
                 }
-            } catch (e: Exception) {
-                _todoError.value = "Failed to fetch todos. Please try again."
-            }
-        }
-    }
-
-    fun createTodo(title: String, content: String, completed: Boolean) {
-        viewModelScope.launch {
-            try {
-                val access = sharedPreferences.getString("access", null)
-                if (!access.isNullOrEmpty()) {
-                    val response = RetrofitClient.authService.createTodo("Bearer $access", CreateOrUpdateTodoRequest(title, content, completed))
-                    if (response.isSuccessful) {
-                        fetchTodos() // Refresh todos after creating a new one
-                    } else {
-                        if (response.code() == 401){
-                            Log.d("RESPOSNE", response.message())
-
-                        }
-                        _todoError.value = "Failed to create todo. Please try again."
-                    }
-                } else {
-                    _todoError.value = "No access token found. Please log in again."
-                }
-            } catch (e: Exception) {
-                _todoError.value = "Failed to create todo. Please try again."
-            }
-        }
-    }
-
-    fun updateTodo(todo: Todo) {
-        viewModelScope.launch {
-            try {
-                val access = sharedPreferences.getString("access", null)
-                if (!access.isNullOrEmpty()) {
-                    val response = RetrofitClient.authService.updateTodo(
-                        "Bearer $access",
-                        CreateOrUpdateTodoRequest(
-                            todo.title,
-                            todo.content,
-                            todo.completed
-                        ),
-                        todo.id
-                    )
-                    if (response.isSuccessful) {
-                        fetchTodos()
-                    } else {
-                        _todoError.value = "Failed to update todo. Please try again."
-                    }
-                } else {
-                    _todoError.value = "No access token found. Please log in again."
-                }
-            } catch (e: Exception) {
-                _todoError.value = "Failed to update todo. Please try again."
-            }
         }
     }
 
     fun searchTodos(searchItem: String) {
-        viewModelScope.launch {
-            try {
-                val access = sharedPreferences.getString("access", null)
-                if (!access.isNullOrEmpty()) {
-                    val response = RetrofitClient.authService.searchTodos(
-                        "Bearer $access",
-                        searchItem
-                    )
-                    if (response.isSuccessful) {
-                        _todos.value = response.body()
-                    } else {
-                        _todoError.value = "Failed to search todos. Please try again."
-                    }
-                } else {
-                    _todoError.value = "No access token found. Please log in again."
+        viewModelScope.launch(Dispatchers.IO) {
+            todoRepository.searchTodosAction(searchItem)
+                .collectLatest { response ->
+                    _todosResourceState.value = response
                 }
-            } catch (e: Exception) {
-                _todoError.value = "Failed to search todos. Please try again."
-            }
         }
     }
 
-    fun fetchSuggestions(query: String) {
-        val filteredList = _todos.value?.filter {
-            it.title.contains(query, ignoreCase = true) ||
-                    it.content.contains(query, ignoreCase = true)
+    fun createTodo(todo: Todo) {
+        viewModelScope.launch(Dispatchers.IO) {
+            todoRepository.createTodoAction(todo            )
+                .collectLatest { response ->
+                    _todoState.value = response.copy()
+                }
         }
-        _suggestions.value = filteredList
+    }
+
+    fun updateTodo(todo: Todo) {
+        viewModelScope.launch(Dispatchers.IO) {
+            todoRepository.updateTodoAction(todo)
+                .collectLatest { response ->
+                    _todoState.value = response.copy()
+                }
+        }
     }
 
     fun deleteTodo(todoId: Int) {
-        viewModelScope.launch {
-            try {
-                val access = sharedPreferences.getString("access", null)
-                if (!access.isNullOrEmpty()) {
-                    val response = RetrofitClient.authService.deleteTodo("Bearer $access", todoId)
-                    if (response.isSuccessful) {
-                        fetchTodos() // Refresh todos after creating a new one
-                    } else {
-                        _todoError.value = "Failed to delete todo. Please try again."
-                    }
-                } else {
-                    _todoError.value = "No access token found. Please log in again."
+        viewModelScope.launch(Dispatchers.IO) {
+            todoRepository.deleteTodoAction(todoId)
+                .collectLatest { response ->
+                    _todoState.value = response.copy()
                 }
-            } catch (e: Exception) {
-                _todoError.value = "Failed to delete todo. Please try again."
+        }
+    }
+
+
+    fun fetchSuggestions(query: String) {
+        _suggestions.value = todosResourceState.value.let {
+            when (it) {
+                is TodosResourceState.Success -> it.data.filter { item ->
+                    item.title.contains(query, ignoreCase = true) ||
+                            item.content.contains(query, ignoreCase = true)
+                }
+
+                else -> emptyList()
             }
         }
+    }
+
+    fun resetTodoState() {
+        _todoState. value = TodoState()
     }
 }

@@ -1,18 +1,20 @@
 package com.example.companytaskmanager.network
 
+import android.content.SharedPreferences
 import android.util.Log
 import com.example.companytaskmanager.BuildConfig
-import com.example.companytaskmanager.utils.SharedPrefsHelper
-import com.example.companytaskmanager.network.model.RefreshRequest
+import com.example.companytaskmanager.network.RRmodels.RefreshRequest
+import com.example.companytaskmanager.network.services.AuthService
 import okhttp3.Interceptor
 import okhttp3.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import javax.inject.Inject
 
 
-class TokenInterceptor() : Interceptor {
-    private val sharedPreferences = SharedPrefsHelper.getSharedPreferences()
-
+class TokenInterceptor @Inject constructor(
+    private val sharedPreferences: SharedPreferences
+) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         var response = chain.proceed(originalRequest)

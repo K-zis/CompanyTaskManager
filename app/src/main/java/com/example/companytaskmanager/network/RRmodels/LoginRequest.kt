@@ -1,4 +1,4 @@
-package com.example.companytaskmanager.network.model
+package com.example.companytaskmanager.network.RRmodels
 
 data class LoginRequest(
     val username: String,

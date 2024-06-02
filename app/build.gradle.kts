@@ -3,6 +3,8 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    id("com.google.devtools.ksp")
+    id("com.google.dagger.hilt.android")
 }
 
 android {
@@ -89,6 +91,8 @@ dependencies {
     implementation(libs.androidx.security.crypto.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.jwtdecode)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
     // testing
     testImplementation(libs.junit)

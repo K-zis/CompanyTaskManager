@@ -18,33 +18,16 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 
 @Composable
-fun LoginScreen(navController: NavHostController, authViewModel: AuthViewModel) {
+fun LoginScreen(
+    navController: NavHostController,
+    authViewModel: AuthViewModel
+) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-
-    val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
-    val loginError by authViewModel.loginError.collectAsState()
+    val loginState by authViewModel.loginState.collectAsState()
 
     val localFocusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-
-    LaunchedEffect(isAuthenticated) {
-        if (isAuthenticated) {
-            navController.navigate("protected_home") {
-                popUpTo("login") { inclusive = true }
-            }
-        } else {
-            isLoading = false
-        }
-    }
-
-    LaunchedEffect(loginError) {
-        if (loginError != null) {
-            isLoading = false
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -71,7 +54,6 @@ fun LoginScreen(navController: NavHostController, authViewModel: AuthViewModel) 
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
                 keyboardController?.hide()
-                isLoading = true
                 authViewModel.login(username, password)
             }),
             visualTransformation = PasswordVisualTransformation()
@@ -79,18 +61,26 @@ fun LoginScreen(navController: NavHostController, authViewModel: AuthViewModel) 
         Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = {
-                isLoading = true
                 authViewModel.login(username, password)
             },
-            enabled = !isLoading
+            enabled = loginState == LoginState.Idle
         ) {
             Text("Login")
         }
-        if (isLoading) {
-            CircularProgressIndicator()
-        }
-        if (loginError != null) {
-            Text(loginError!!, color = MaterialTheme.colorScheme.error)
+
+        when(loginState) {
+            is LoginState.Error -> {
+                val errorMessage = (loginState as LoginState.Error).message
+                Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+
+            }
+            LoginState.Idle -> {}
+            LoginState.Loading -> CircularProgressIndicator()
+            LoginState.Success -> {
+                navController.navigate("protected_home") {
+                    popUpTo("login") {inclusive = true}
+                }
+            }
         }
     }
 }
